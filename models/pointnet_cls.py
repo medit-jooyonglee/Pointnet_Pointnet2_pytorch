@@ -37,8 +37,11 @@ class get_loss(torch.nn.Module):
             pred, trans_feat = preds
         elif isinstance(preds, torch.Tensor):
             pred = preds
+            trans_feat = None
         # pred, target 
         loss = F.nll_loss(pred, target)
+        if trans_feat is None:
+            return loss
         mat_diff_loss = feature_transform_reguliarzer(trans_feat)
 
         total_loss = loss + mat_diff_loss * self.mat_diff_loss_scale
