@@ -4,13 +4,13 @@ from pointnet2_utils import PointNetSetAbstractionMsg, PointNetSetAbstraction
 
 
 class get_model(nn.Module):
-    def __init__(self, *, num_class, in_channels=6, **kwargs):
+    def __init__(self, *, num_class, in_channels=6, used_graph_feature=False, **kwargs):
         super(get_model, self).__init__()
         feat_channels = in_channels - 3  # xyz 3채널 제외한 feature 채널 수
         self.normal_channel = feat_channels > 0
-        self.sa1 = PointNetSetAbstractionMsg(512, [0.1, 0.2, 0.4], [16, 32, 128], feat_channels, [[32, 32, 64], [64, 64, 128], [64, 96, 128]])
-        self.sa2 = PointNetSetAbstractionMsg(128, [0.2, 0.4, 0.8], [32, 64, 128], 320,[[64, 64, 128], [128, 128, 256], [128, 128, 256]])
-        self.sa3 = PointNetSetAbstraction(None, None, None, 640 + 3, [256, 512, 1024], True)
+        self.sa1 = PointNetSetAbstractionMsg(512, [0.1, 0.2, 0.4], [16, 32, 128], feat_channels, [[32, 32, 64], [64, 64, 128], [64, 96, 128]], used_graph_feature=used_graph_feature)
+        self.sa2 = PointNetSetAbstractionMsg(128, [0.2, 0.4, 0.8], [32, 64, 128], 320,[[64, 64, 128], [128, 128, 256], [128, 128, 256]], used_graph_feature=used_graph_feature)
+        self.sa3 = PointNetSetAbstraction(None, None, None, 640 + 3, [256, 512, 1024], True, used_graph_feature=used_graph_feature)
         self.fc1 = nn.Linear(1024, 512)
         self.bn1 = nn.BatchNorm1d(512)
         self.drop1 = nn.Dropout(0.4)

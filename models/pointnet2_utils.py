@@ -158,20 +158,25 @@ def sample_and_group_all(xyz, points):
     return new_xyz, new_points
 
 
+def to_graph_feature(x0):
+    return torch.cat([x0 - x0[:, :1], x0], dim=1)
+    
 class PointNetSetAbstraction(nn.Module):
-    def __init__(self, npoint, radius, nsample, in_channel, mlp, group_all):
+    def __init__(self, npoint, radius, nsample, in_channel, mlp, group_all, used_graph_feature=False):
         super(PointNetSetAbstraction, self).__init__()
         self.npoint = npoint
         self.radius = radius
         self.nsample = nsample
         self.mlp_convs = nn.ModuleList()
         self.mlp_bns = nn.ModuleList()
-        last_channel = in_channel
+        last_channel = in_channel * ( 1 if not used_graph_feature else 2) 
         for out_channel in mlp:
             self.mlp_convs.append(nn.Conv2d(last_channel, out_channel, 1))
             self.mlp_bns.append(nn.BatchNorm2d(out_channel))
             last_channel = out_channel
         self.group_all = group_all
+        self.used_graph_feature = used_graph_feature
+        
 
     def forward(self, xyz, points):
         """
@@ -193,6 +198,8 @@ class PointNetSetAbstraction(nn.Module):
         # new_xyz: sampled points position data, [B, npoint, C]
         # new_points: sampled points data, [B, npoint, nsample, C+D]
         new_points = new_points.permute(0, 3, 2, 1) # [B, C+D, nsample,npoint]
+        
+        new_points = to_graph_feature(new_points) if self.used_graph_feature else new_points
         for i, conv in enumerate(self.mlp_convs):
             bn = self.mlp_bns[i]
             new_points =  F.relu(bn(conv(new_points)))
@@ -203,8 +210,9 @@ class PointNetSetAbstraction(nn.Module):
 
 
 class PointNetSetAbstractionMsg(nn.Module):
-    def __init__(self, npoint, radius_list, nsample_list, in_channel, mlp_list):
+    def __init__(self, npoint, radius_list, nsample_list, in_channel, mlp_list, used_graph_feature=False):
         super(PointNetSetAbstractionMsg, self).__init__()
+        self.used_graph_feature = used_graph_feature
         self.npoint = npoint
         self.radius_list = radius_list
         self.nsample_list = nsample_list
@@ -213,7 +221,7 @@ class PointNetSetAbstractionMsg(nn.Module):
         for i in range(len(mlp_list)):
             convs = nn.ModuleList()
             bns = nn.ModuleList()
-            last_channel = in_channel + 3
+            last_channel = (in_channel + 3) *  ( 1 if not used_graph_feature else 2) 
             for out_channel in mlp_list[i]:
                 convs.append(nn.Conv2d(last_channel, out_channel, 1))
                 bns.append(nn.BatchNorm2d(out_channel))
@@ -250,6 +258,7 @@ class PointNetSetAbstractionMsg(nn.Module):
                 grouped_points = grouped_xyz
 
             grouped_points = grouped_points.permute(0, 3, 2, 1)  # [B, D, K, S]
+            grouped_points = to_graph_feature(grouped_points) if self.used_graph_feature else grouped_points
             for j in range(len(self.conv_blocks[i])):
                 conv = self.conv_blocks[i][j]
                 bn = self.bn_blocks[i][j]
